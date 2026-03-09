@@ -1,0 +1,3 @@
+quotation_controllers:
+    resource: ../../src/Infrastructure/Quotation/Controller/
+    type: attribute

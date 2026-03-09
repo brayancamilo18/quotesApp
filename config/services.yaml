@@ -1,35 +1,60 @@
 parameters:
-  app.campaign_active: "%env(bool:APP_CAMPAIGN_ACTIVE)%"
+    app.campaign_active: '%env(bool:APP_CAMPAIGN_ACTIVE)%'
+    app.base_url: '%env(APP_BASE_URL)%'
 
 services:
-  _defaults:
-    autowire: true
-    autoconfigure: true
+    _defaults:
+        autowire: true
+        autoconfigure: true
 
-  App\:
-    resource: "../src/"
-    exclude:
-      - "../src/DependencyInjection/"
-      - "../src/Entity/"
-      - "../src/Kernel.php"
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
 
-  # CampaignPolicy
-  App\Domain\Quotation\Service\FixedDiscountCampaignPolicy:
-    arguments:
-      $active: "%app.campaign_active%"
-      $discountPercentage: 0.05
+    # ==============
+    # CampaignPolicy
+    # ==============
+    App\Domain\Quotation\Service\FixedDiscountCampaignPolicy:
+        arguments:
+            $active: '%app.campaign_active%'
+            $discountPercentage: 0.05
 
-  App\Domain\Quotation\Service\CampaignPolicy: '@App\Domain\Quotation\Service\FixedDiscountCampaignPolicy'
+    App\Domain\Quotation\Service\CampaignPolicy: '@App\Domain\Quotation\Service\FixedDiscountCampaignPolicy'
 
-  # Proveedores in-memory
-  App\Infrastructure\Quotation\Provider\ProviderAInMemoryAdapter:
-    tags: ["app.quotation_provider"]
+    # ==========================
+    # Proveedores HTTP (no tag)
+    # ==========================
+    App\Infrastructure\Quotation\Provider\ProviderAHttpAdapter:
+        arguments:
+            $baseUrl: '%app.base_url%'
+            $timeout: 10.0
 
-  App\Infrastructure\Quotation\Provider\ProviderBInMemoryAdapter:
-    tags: ["app.quotation_provider"]
+    App\Infrastructure\Quotation\Provider\ProviderBHttpAdapter:
+        arguments:
+            $baseUrl: '%app.base_url%'
+            $timeout: 10.0
 
-  # Use case
-  App\Application\Quotation\UseCase\CalculateQuotesUseCase:
-    arguments:
-      $providers: !tagged_iterator "app.quotation_provider"
-      # $campaignPolicy se autowirea desde la interfaz CampaignPolicy
+    # =========
+    # Use case
+    # =========
+    App\Application\Quotation\UseCase\CalculateQuotesUseCase:
+        arguments:
+            $providers: !tagged_iterator 'app.quotation_provider'
+
+    # ==========================
+    # Controladores de infraestructura
+    # ==========================
+    App\Infrastructure\Quotation\Controller\CalculateController:
+        public: true
+        tags: ['controller.service_arguments']
+
+    App\Infrastructure\Quotation\Controller\ProviderAController:
+        public: true
+        tags: ['controller.service_arguments']
+
+    App\Infrastructure\Quotation\Controller\ProviderBController:
+        public: true
+        tags: ['controller.service_arguments']

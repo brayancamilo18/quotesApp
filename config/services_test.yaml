@@ -1,0 +1,6 @@
+services:
+    App\Infrastructure\Quotation\Provider\ProviderAInMemoryAdapter:
+        tags: ['app.quotation_provider']
+
+    App\Infrastructure\Quotation\Provider\ProviderBInMemoryAdapter:
+        tags: ['app.quotation_provider']
