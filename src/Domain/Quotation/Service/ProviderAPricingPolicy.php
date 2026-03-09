@@ -4,7 +4,7 @@ namespace App\Domain\Quotation\Service;
 
 use App\Domain\Quotation\Model\Car;
 use App\Domain\Quotation\Model\QuoteRequest;
-use App\Domain\Shared\Money;
+use App\Domain\Quotation\Model\Money;
 
 final class ProviderAPricingPolicy
 {
@@ -40,6 +40,9 @@ final class ProviderAPricingPolicy
         if($car->isCommercialUse()){
             $price = $price * 1.15;
         }
+
+        $price = round($price, 2);
+
 
         return new Money($price, 'EUR');
     }

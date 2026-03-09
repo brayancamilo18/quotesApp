@@ -2,7 +2,7 @@
 
 namespace App\Domain\Quotation\Model;
 
-use App\Domain\Shared\Money;
+use App\Domain\Quotation\Model\Money;
 
 final class Quote
 {

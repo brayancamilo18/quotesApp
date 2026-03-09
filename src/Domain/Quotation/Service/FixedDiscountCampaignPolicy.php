@@ -3,7 +3,7 @@
 namespace App\Domain\Quotation\Service;
 
 use App\Domain\Quotation\Model\Quote;
-use App\Domain\Shared\Money;
+use App\Domain\Quotation\Model\Money;
 
 final class FixedDiscountCampaignPolicy implements CampaignPolicy
 {
