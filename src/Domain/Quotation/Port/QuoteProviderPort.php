@@ -2,16 +2,22 @@
 
 namespace App\Domain\Quotation\Port;
 
-use App\Domain\Quotation\Exception\ProviderException;
-use App\Domain\Quotation\Model\Quote;
 use App\Domain\Quotation\Model\QuoteRequest;
+use App\Domain\Quotation\Model\Quote;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 interface QuoteProviderPort
 {
     public function getName(): string;
 
     /**
-     * @throws ProviderException
+     * Lanza la petición HTTP sin bloquear y devuelve la ResponseInterface.
      */
-    public function getQuote(QuoteRequest $request): Quote;
+    public function requestAsync(QuoteRequest $request): ResponseInterface;
+
+    /**
+     * A partir de una ResponseInterface completada, construye la Quote
+     * o lanza una ProviderException si hay problema.
+     */
+    public function buildQuoteFromResponse(ResponseInterface $response, QuoteRequest $request): Quote;
 }

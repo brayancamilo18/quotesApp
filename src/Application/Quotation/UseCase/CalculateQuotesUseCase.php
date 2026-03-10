@@ -9,6 +9,7 @@ use App\Domain\Quotation\Model\Quote;
 use App\Domain\Quotation\Model\QuoteRequest;
 use App\Domain\Quotation\Port\QuoteProviderPort;
 use App\Domain\Quotation\Service\CampaignPolicy;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 final class CalculateQuotesUseCase
 {
@@ -30,24 +31,45 @@ final class CalculateQuotesUseCase
     {
         $quotes = [];
 
+        // 1. Lanzar en paralelo todas las peticiones
+        /** @var array<int, array{provider: QuoteProviderPort, response: ResponseInterface}> $asyncRequests */
+        $asyncRequests = [];
+
         foreach ($this->providers as $provider) {
             try {
-                $quote = $provider->getQuote($request);
-                $quotes[] = $quote;
+                $response = $provider->requestAsync($request);
+                $asyncRequests[] = [
+                    'provider' => $provider,
+                    'response' => $response,
+                ];
             } catch (ProviderException $e) {
-                // Ignorar proveedor que falla, el logging se hará en capa superior.
                 continue;
             }
         }
 
-        // Aplicar campaña si está activa
+        // 2. Recoger todas las respuestas y construir las Quote
+        foreach ($asyncRequests as $item) {
+            /** @var QuoteProviderPort $provider */
+            $provider = $item['provider'];
+            /** @var ResponseInterface $response */
+            $response = $item['response'];
+
+            try {
+                $quote = $provider->buildQuoteFromResponse($response, $request);
+                $quotes[] = $quote;
+            } catch (ProviderException $e) {
+                continue;
+            }
+        }
+
+        // 3. Aplicar campaña si está activa (igual que antes)
         if ($this->campaignPolicy->isActive()) {
             $quotes = array_map(function (Quote $quote): Quote {
                 return $this->campaignPolicy->apply($quote);
             }, $quotes);
         }
 
-        // Ordenar por precio efectivo ascendente
+        // 4. Ordenar por precio efectivo ascendente (igual que antes)
         usort($quotes, function (Quote $a, Quote $b): int {
             $priceA = $a->getEffectivePrice()->getAmount();
             $priceB = $b->getEffectivePrice()->getAmount();
@@ -55,15 +77,15 @@ final class CalculateQuotesUseCase
             return $priceA <=> $priceB;
         });
 
-        // Marcar la más barata con nota, si existe
+        // 5. Marcar la más barata con nota "cheapest" (igual que antes)
         if (!empty($quotes)) {
             $cheapest = array_shift($quotes);
             $cheapest = $cheapest->withNote('cheapest');
             array_unshift($quotes, $cheapest);
         }
 
-        // Mapear a DTOs
-        $offersDto = array_map(function (Quote $quote): QuoteDTO{
+        // 6. Mapear a DTOs (igual que antes)
+        $offersDto = array_map(function (Quote $quote): QuoteDTO {
             $base = $quote->getBasePrice();
             $discounted = $quote->getDiscountedPrice();
 

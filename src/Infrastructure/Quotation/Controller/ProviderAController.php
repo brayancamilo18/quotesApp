@@ -25,7 +25,6 @@ final class ProviderAController
     {
         // Simulamos latencia
         sleep(2);
-
         //Simulamos 10% de error
         if (mt_rand(1, 10) === 1) {
             return new JsonResponse(['error' => 'Provider A internal error'], JsonResponse::HTTP_INTERNAL_SERVER_ERROR);

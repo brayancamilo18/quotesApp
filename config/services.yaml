@@ -1,60 +1,65 @@
 parameters:
-    app.campaign_active: '%env(bool:APP_CAMPAIGN_ACTIVE)%'
-    app.base_url: '%env(APP_BASE_URL)%'
+  app.campaign_active: "%env(bool:APP_CAMPAIGN_ACTIVE)%"
+  app.base_url: "%env(APP_BASE_URL)%" # <- NUEVO
+  app.provider_timeout: 10.0 # <- opcional, por claridad
 
 services:
-    _defaults:
-        autowire: true
-        autoconfigure: true
+  _defaults:
+    autowire: true
+    autoconfigure: true
 
-    App\:
-        resource: '../src/'
-        exclude:
-            - '../src/DependencyInjection/'
-            - '../src/Entity/'
-            - '../src/Kernel.php'
+  App\:
+    resource: "../src/"
+    exclude:
+      - "../src/DependencyInjection/"
+      - "../src/Entity/"
+      - "../src/Kernel.php"
 
-    # ==============
-    # CampaignPolicy
-    # ==============
-    App\Domain\Quotation\Service\FixedDiscountCampaignPolicy:
-        arguments:
-            $active: '%app.campaign_active%'
-            $discountPercentage: 0.05
+  # CampaignPolicy
+  App\Domain\Quotation\Service\FixedDiscountCampaignPolicy:
+    arguments:
+      $active: "%app.campaign_active%"
+      $discountPercentage: 0.05
 
-    App\Domain\Quotation\Service\CampaignPolicy: '@App\Domain\Quotation\Service\FixedDiscountCampaignPolicy'
+  App\Domain\Quotation\Service\CampaignPolicy: '@App\Domain\Quotation\Service\FixedDiscountCampaignPolicy'
 
-    # ==========================
-    # Proveedores HTTP (no tag)
-    # ==========================
-    App\Infrastructure\Quotation\Provider\ProviderAHttpAdapter:
-        arguments:
-            $baseUrl: '%app.base_url%'
-            $timeout: 10.0
+  # Proveedores HTTP (para todos los entornos en los que quieras usar HTTP)
+  App\Infrastructure\Quotation\Provider\ProviderAHttpAdapter:
+    arguments:
+      $baseUrl: "%app.base_url%"
+      $timeout: "%app.provider_timeout%"
+    tags: ["app.quotation_provider"]
 
-    App\Infrastructure\Quotation\Provider\ProviderBHttpAdapter:
-        arguments:
-            $baseUrl: '%app.base_url%'
-            $timeout: 10.0
+  App\Infrastructure\Quotation\Provider\ProviderBHttpAdapter:
+    arguments:
+      $baseUrl: "%app.base_url%"
+      $timeout: "%app.provider_timeout%"
+    tags: ["app.quotation_provider"]
+  
+  App\Infrastructure\Quotation\Provider\ProviderCHttpAdapter:
+    arguments:
+      $baseUrl: "%app.base_url%"
+      $timeout: "%app.provider_timeout%"
+    tags: ["app.quotation_provider"]
 
-    # =========
-    # Use case
-    # =========
-    App\Application\Quotation\UseCase\CalculateQuotesUseCase:
-        arguments:
-            $providers: !tagged_iterator 'app.quotation_provider'
+  # Use case
+  App\Application\Quotation\UseCase\CalculateQuotesUseCase:
+    arguments:
+      $providers: !tagged_iterator "app.quotation_provider"
 
-    # ==========================
-    # Controladores de infraestructura
-    # ==========================
-    App\Infrastructure\Quotation\Controller\CalculateController:
-        public: true
-        tags: ['controller.service_arguments']
+  # Controladores infra
+  App\Infrastructure\Quotation\Controller\CalculateController:
+    public: true
+    tags: ["controller.service_arguments"]
 
-    App\Infrastructure\Quotation\Controller\ProviderAController:
-        public: true
-        tags: ['controller.service_arguments']
+  App\Infrastructure\Quotation\Controller\ProviderAController:
+    public: true
+    tags: ["controller.service_arguments"]
 
-    App\Infrastructure\Quotation\Controller\ProviderBController:
-        public: true
-        tags: ['controller.service_arguments']
+  App\Infrastructure\Quotation\Controller\ProviderBController:
+    public: true
+    tags: ["controller.service_arguments"]
+
+  App\Infrastructure\Quotation\Controller\ProviderCController:
+    public: true
+    tags: ["controller.service_arguments"]

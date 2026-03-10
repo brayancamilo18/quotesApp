@@ -4,12 +4,14 @@ namespace App\Infrastructure\Quotation\Provider;
 
 use App\Domain\Quotation\Exception\ProviderTimeoutException;
 use App\Domain\Quotation\Exception\ProviderUnavailableException;
+use App\Domain\Quotation\Model\Money;
 use App\Domain\Quotation\Model\Quote;
 use App\Domain\Quotation\Model\QuoteRequest;
 use App\Domain\Quotation\Port\QuoteProviderPort;
-use App\Domain\Quotation\Model\Money;
+use Symfony\Contracts\HttpClient\Exception\TimeoutExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 final class ProviderBHttpAdapter implements QuoteProviderPort
 {
@@ -29,12 +31,11 @@ final class ProviderBHttpAdapter implements QuoteProviderPort
         return 'provider-b';
     }
 
-    public function getQuote(QuoteRequest $request): Quote
+    public function requestAsync(QuoteRequest $request): ResponseInterface
     {
         $driver = $request->getDriver();
         $car = $request->getCar();
 
-        // Construir XML de solicitud
         $xml = sprintf(
             '<SolicitudCotizacion>
                 <EdadConductor>%d</EdadConductor>
@@ -48,7 +49,7 @@ final class ProviderBHttpAdapter implements QuoteProviderPort
         );
 
         try {
-            $response = $this->httpClient->request('POST', $this->baseUrl . '/provider-b/quote', [
+            return $this->httpClient->request('POST', $this->baseUrl . '/provider-b/quote', [
                 'body'    => $xml,
                 'headers' => ['Content-Type' => 'application/xml'],
                 'timeout' => $this->timeout,
@@ -56,18 +57,37 @@ final class ProviderBHttpAdapter implements QuoteProviderPort
         } catch (TransportExceptionInterface $e) {
             throw new ProviderTimeoutException('Timeout calling provider B', 0, $e);
         }
+    }
 
-        $statusCode = $response->getStatusCode();
+    public function buildQuoteFromResponse(ResponseInterface $response, QuoteRequest $request): Quote
+    {
+        try {
+            $statusCode = $response->getStatusCode();
+        } catch (TimeoutExceptionInterface $e) {
+            throw new ProviderTimeoutException('Timeout calling provider B', 0, $e);
+        } catch (TransportExceptionInterface $e) {
+            throw new ProviderTimeoutException('Timeout calling provider B', 0, $e);
+        }
 
         if ($statusCode >= 500) {
-            throw new ProviderUnavailableException('Provider B is unavailable (status code: ' . $statusCode . ')');
+            throw new ProviderUnavailableException(
+                'Provider B is unavailable (status code: ' . $statusCode . ')'
+            );
         }
 
         if ($statusCode >= 400) {
-            throw new ProviderUnavailableException('Provider B returned error (status code: ' . $statusCode . ')');
+            throw new ProviderUnavailableException(
+                'Provider B returned error (status code: ' . $statusCode . ')'
+            );
         }
 
-        $content = $response->getContent();
+        try {
+            $content = $response->getContent(false);
+        } catch (TimeoutExceptionInterface $e) {
+            throw new ProviderTimeoutException('Timeout calling provider B', 0, $e);
+        } catch (TransportExceptionInterface $e) {
+            throw new ProviderTimeoutException('Timeout calling provider B', 0, $e);
+        }
 
         $xmlResponse = @simplexml_load_string($content);
         if ($xmlResponse === false) {

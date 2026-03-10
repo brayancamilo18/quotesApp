@@ -13,8 +13,9 @@ use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
-final class ProviderAHttpAdapter implements QuoteProviderPort
+final class ProviderCHttpAdapter implements QuoteProviderPort
 {
+
     private HttpClientInterface $httpClient;
     private string $baseUrl;
     private float $timeout;
@@ -28,7 +29,7 @@ final class ProviderAHttpAdapter implements QuoteProviderPort
 
     public function getName(): string
     {
-        return 'provider-a';
+        return 'provider-c';
     }
 
     public function requestAsync(QuoteRequest $request): ResponseInterface
@@ -43,12 +44,12 @@ final class ProviderAHttpAdapter implements QuoteProviderPort
         ];
 
         try {
-            return $this->httpClient->request('POST', $this->baseUrl . '/provider-a/quote', [
+            return $this->httpClient->request('POST', $this->baseUrl . '/provider-c/quote', [
                 'json'    => $payload,
                 'timeout' => $this->timeout,
             ]);
         } catch (TransportExceptionInterface $e) {
-            throw new ProviderTimeoutException('Timeout calling provider A', 0, $e);
+            throw new ProviderTimeoutException('Timeout calling provider C', 0, $e);
         }
     }
 
@@ -57,27 +58,49 @@ final class ProviderAHttpAdapter implements QuoteProviderPort
         try {
             $statusCode = $response->getStatusCode();
         } catch (TimeoutExceptionInterface $e) {
-            throw new ProviderTimeoutException('Timeout calling provider A', 0, $e);
+            throw new ProviderTimeoutException('Timeout calling provider C', 0, $e);
         } catch (TransportExceptionInterface $e) {
-            throw new ProviderTimeoutException('Timeout calling provider A', 0, $e);
+            throw new ProviderTimeoutException('Timeout calling provider C', 0, $e);
         }
 
         if ($statusCode >= 500) {
             throw new ProviderUnavailableException(
-                'Provider A is unavailable (status code: ' . $statusCode . ')'
+                'Provider C is unavailable (status code: ' . $statusCode . ')'
             );
         }
 
         if ($statusCode >= 400) {
             throw new ProviderUnavailableException(
-                'Provider A returned error (status code: ' . $statusCode . ')'
+                'Provider C returned error (status code: ' . $statusCode . ')'
             );
         }
 
-        $data = $response->toArray(false);
+        try {
+            $content = $response->getContent(false);
+        } catch (TimeoutExceptionInterface $e) {
+            throw new ProviderTimeoutException('Timeout calling provider C', 0, $e);
+        } catch (TransportExceptionInterface $e) {
+            throw new ProviderTimeoutException('Timeout calling provider C', 0, $e);
+        }
 
-        $price = (float) ($data['price'] ?? 0);
-        $currency = (string) ($data['currency'] ?? 'EUR');
+        
+        $lines = array_values(array_filter(array_map('trim', explode("\n", $content))));
+        if (count($lines) < 2) {
+            throw new ProviderUnavailableException('Invalid CSV from provider C');
+        }
+
+        // segunda línea: datos
+        $dataLine = $lines[1];
+        $parts = str_getcsv($dataLine);
+
+        if (count($parts) < 2) {
+            throw new ProviderUnavailableException('Invalid CSV structure from provider C');
+        }
+
+        [$priceString, $currency] = $parts;
+
+        $price = (float) $priceString;
+        $currency = (string) $currency ?: 'EUR';
 
         $money = new Money($price, $currency);
 
